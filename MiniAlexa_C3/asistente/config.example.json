@@ -1,0 +1,20 @@
+{
+  "gemini_api_key": "PEGA_AQUI_TU_CLAVE_DE_GEMINI",
+  "modelos": [
+    "gemini-4-hydrogen",
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash",
+    "gemini-2.5-flash"
+  ],
+  "groq_api_key": "PEGA_AQUI_TU_CLAVE_DE_GROQ",
+  "nombre": "Yachi",
+  "voz": "es-EC-AndreaNeural",
+  "velocidad": "+5%",
+  "volumen": 0.6,
+  "max_oraciones": 4,
+  "max_palabras": 80,
+  "busqueda": true,
+  "ciudad": "Urcuqui, Imbabura, Ecuador",
+  "lat": 0.4189,
+  "lon": -78.1975
+}

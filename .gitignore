@@ -1,0 +1,24 @@
+# Claves privadas (usa config.example.json como plantilla)
+MiniAlexa_C3/asistente/config.json
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Datos personales generados al usar el asistente
+MiniAlexa_C3/asistente/grabaciones/
+MiniAlexa_C3/asistente/historial.txt
+
+# Firmware (ESP-IDF): se regeneran al compilar
+MiniAlexa_C3/firmware/build/
+MiniAlexa_C3/firmware/managed_components/
+MiniAlexa_C3/firmware/dependencies.lock
+MiniAlexa_C3/firmware/sdkconfig.old
+*.log
+
+# Editor / sistema
+.vscode/
+Thumbs.db
+desktop.ini

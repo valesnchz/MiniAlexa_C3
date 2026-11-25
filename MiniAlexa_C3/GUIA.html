@@ -1,0 +1,107 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mini-Alexa C3 · Guía</title>
+<style>
+:root{--bg:#fff;--fg:#1f2937;--mut:#6b7280;--acc:#4338ca;--card:#f5f7ff;--bd:#d6dbf5}
+body{font-family:"Segoe UI",Arial,sans-serif;color:var(--fg);background:var(--bg);max-width:980px;margin:0 auto;padding:24px;line-height:1.5}
+h1{margin:0 0 4px}h2{margin-top:32px;border-bottom:2px solid var(--bd);padding-bottom:4px}
+.sub{color:var(--mut)}.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px 16px;margin:12px 0}
+.warn{background:#fff7ed;border-color:#fed7aa}code,pre{background:#f3f4f6;border-radius:6px;padding:2px 5px;font-family:Consolas,monospace}
+pre{padding:10px;overflow-x:auto}table{border-collapse:collapse;width:100%;margin:10px 0}td,th{border:1px solid #e5e7eb;padding:6px 8px;text-align:left;font-size:14px}th{background:#eef2ff}
+.svgbox{overflow-x:auto;border:1px solid #e5e7eb;border-radius:10px}.svgbox svg{min-width:900px;width:100%;height:auto}
+ol li,ul li{margin:4px 0}
+</style></head><body>
+<h1>Mini-Alexa C3</h1>
+<div class="sub">ESP32-C3 Super Mini · electret + LM358 (Parte 1) · Gemini · parlante con LM386 · ESP-IDF 6.1</div>
+
+<div class="card"><b>Flujo:</b> pulsar <b>BOOT</b> en la placa (o el botón Hablar del PC) → la C3 graba 4 s del electret a 16 kHz → envía el audio por USB al PC con CRC32 → Gemini escucha el audio y devuelve transcripción + respuesta corta → el PC convierte la respuesta en voz (edge-tts, voz ecuatoriana) → envía la voz por USB a la C3 en bloques con control de flujo → la C3 la saca por GPIO10 en PDM → filtro RC → LM386 → parlante.</div>
+
+<h2>1. Qué se reutiliza y qué es nuevo</h2>
+<ul>
+<li><b>Micrófono:</b> el mismo circuito electret + LM358 de la Parte 1 en GPIO3. No se toca.</li>
+<li><b>Firmware:</b> la captura es idéntica a la Parte 1 (misma cabecera <code>C3AUDIO1</code>). Se añade la orden <code>P</code> para reproducir y el botón BOOT para hablar sin tocar el PC.</li>
+<li><b>Nuevo:</b> la etapa de salida del parlante y el programa <code>asistente</code> del PC.</li>
+</ul>
+<div class="card warn">La C3 no tiene DAC. Se usa el periférico I2S en modo <b>PDM, línea DAC</b>: el chip convierte el audio PCM en una secuencia de 1 bit a unos 6 MHz y un filtro RC la convierte en señal analógica. Es el mismo método del ejemplo oficial <code>i2s_pdm</code> de ESP-IDF.</div>
+
+<h2>2. Material extra</h2>
+<table><tr><th>Ref.</th><th>Valor</th><th>Función</th></tr>
+<tr><td>U2</td><td>LM386 DIP-8</td><td>Amplificador de potencia para el parlante</td></tr>
+<tr><td>R11, R12</td><td>1 kΩ</td><td>Filtro RC de reconstrucción (2 etapas)</td></tr>
+<tr><td>C10, C11</td><td>10 nF (103)</td><td>Filtro RC: elimina la portadora PDM</td></tr>
+<tr><td>C12</td><td>1 µF cerámico (105)</td><td>Bloquea la continua de 1,65 V</td></tr>
+<tr><td>R13</td><td>47 kΩ</td><td>Atenuador fijo para no saturar el LM386</td></tr>
+<tr><td>VR1</td><td>Potenciómetro 10 kΩ (el del lab BLE sirve)</td><td>Volumen</td></tr>
+<tr><td>C13</td><td>10 µF</td><td>Bypass del pin 7 (rechazo de ruido de la fuente)</td></tr>
+<tr><td>C14</td><td>220 µF, ≥10 V</td><td>Acople al parlante (bloquea continua)</td></tr>
+<tr><td>R14 + C15</td><td>10 Ω + 47 nF</td><td>Red Zobel: estabilidad del LM386</td></tr>
+<tr><td>C16, C17</td><td>100 nF + 470 µF</td><td>Desacople del +5 V junto al LM386</td></tr>
+<tr><td>SPK</td><td>Parlante pasivo entregado</td><td>Salida</td></tr></table>
+
+<h2>3. Circuito del parlante</h2>
+<div class="svgbox"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 430" font-family="Segoe UI, Arial, sans-serif">
+<style>.w{fill:none;stroke:#1f2937;stroke-width:2}.p{stroke:#1f2937;stroke-width:3}.d{fill:#1f2937}.f{fill:#1f2937}
+.box{fill:#eef2ff;stroke:#1f2937;stroke-width:2}.l{font-size:12px;fill:#374151}.b{font-size:13px;font-weight:700;fill:#111827}
+.n{font-size:12px;fill:#6b7280;font-style:italic}.pin{font-size:11px;fill:#b91c1c;font-weight:700}</style>
+<rect width="1060" height="430" fill="#fff"/>
+<text x="20" y="34" font-size="18" font-weight="700" fill="#111827">Etapa de salida: GPIO10 → filtro RC → volumen → LM386 → parlante</text>
+<text x="20" y="56" font-size="12" fill="#6b7280">Todos los GND son comunes. La masa del parlante y del LM386 vuelve por su propio cable al pin GND de la C3 (masa en estrella).</text>
+<rect x="15" y="145" width="105" height="50" rx="6" class="box"/><text x="67" y="166" class="b" text-anchor="middle">ESP32-C3</text><text x="67" y="184" class="l" text-anchor="middle">GPIO10 · PDM</text><polyline class="w" points="120,170 150,170"/><polyline class="w" points="150,170 155.0,163 165.0,177 175.0,163 185.0,177 195.0,163 205.0,177 210,170"/><text x="180.0" y="156" class="b" text-anchor="middle">R11</text><text x="180.0" y="194" class="l" text-anchor="middle">1 kΩ</text><polyline class="w" points="210,170 250,170"/><circle cx="250" cy="170" r="3.5" class="d"/><polyline class="w" points="250,170 250,211.0"/><polyline class="w" points="250,219.0 250,260"/><line class="p" x1="238" y1="211.0" x2="262" y2="211.0"/><line class="p" x1="238" y1="219.0" x2="262" y2="219.0"/><text x="268" y="213.0" class="b" text-anchor="start">C10</text><text x="268" y="229.0" class="l" text-anchor="start">10 nF</text><polyline class="w" points="250,260 250,266"/><line class="w" x1="238" y1="266" x2="262" y2="266"/><line class="w" x1="242" y1="270" x2="258" y2="270"/><line class="w" x1="246" y1="274" x2="254" y2="274"/><polyline class="w" points="250,170 285,170"/><polyline class="w" points="285,170 290.0,163 300.0,177 310.0,163 320.0,177 330.0,163 340.0,177 345,170"/><text x="315.0" y="156" class="b" text-anchor="middle">R12</text><text x="315.0" y="194" class="l" text-anchor="middle">1 kΩ</text><polyline class="w" points="345,170 385,170"/><circle cx="385" cy="170" r="3.5" class="d"/><polyline class="w" points="385,170 385,211.0"/><polyline class="w" points="385,219.0 385,260"/><line class="p" x1="373" y1="211.0" x2="397" y2="211.0"/><line class="p" x1="373" y1="219.0" x2="397" y2="219.0"/><text x="403" y="213.0" class="b" text-anchor="start">C11</text><text x="403" y="229.0" class="l" text-anchor="start">10 nF</text><polyline class="w" points="385,260 385,266"/><line class="w" x1="373" y1="266" x2="397" y2="266"/><line class="w" x1="377" y1="270" x2="393" y2="270"/><line class="w" x1="381" y1="274" x2="389" y2="274"/><text x="318" y="300" class="n" text-anchor="middle">Filtro RC 2.º orden: quita la portadora PDM</text><polyline class="w" points="385,170 410,170"/><polyline class="w" points="410,170 426.0,170"/><polyline class="w" points="434.0,170 450,170"/><line class="p" x1="426.0" y1="158" x2="426.0" y2="182"/><line class="p" x1="434.0" y1="158" x2="434.0" y2="182"/><text x="430.0" y="150" class="b" text-anchor="middle">C12</text><text x="430.0" y="200" class="l" text-anchor="middle">1 µF</text><polyline class="w" points="450,170 470,170"/><polyline class="w" points="470,170 475.0,163 485.0,177 495.0,163 505.0,177 515.0,163 525.0,177 530,170"/><text x="500.0" y="156" class="b" text-anchor="middle">R13</text><text x="500.0" y="194" class="l" text-anchor="middle">47 kΩ</text><polyline class="w" points="530,170 560,170"/><polyline class="w" points="560,170 553,176.66666666666666 567,190.0 553,203.33333333333334 567,216.66666666666669 553,230.0 567,243.33333333333334 560,250"/><text x="546" y="208.0" class="b" text-anchor="end">VR1</text><text x="546" y="224.0" class="l" text-anchor="end">10 kΩ volumen</text><polyline class="w" points="560,250 560,256"/><line class="w" x1="548" y1="256" x2="572" y2="256"/><line class="w" x1="552" y1="260" x2="568" y2="260"/><line class="w" x1="556" y1="264" x2="564" y2="264"/><polygon class="f" points="572,206 588,200 588,212"/><polyline class="w" points="588,206 660,206"/><text x="612" y="198" class="n" text-anchor="middle">cursor</text><polygon class="box" points="660,165 660,295 800,230"/><text x="672" y="211" class="b" text-anchor="start">+</text><text x="672" y="265" class="b" text-anchor="start">−</text><text x="728" y="236" class="b" text-anchor="middle">LM386</text><text x="652" y="200" class="pin" text-anchor="end">3</text><text x="652" y="256" class="pin" text-anchor="end">2</text><polyline class="w" points="660,260 630,260 630,300"/><polyline class="w" points="630,300 630,306"/><line class="w" x1="618" y1="306" x2="642" y2="306"/><line class="w" x1="622" y1="310" x2="638" y2="310"/><line class="w" x1="626" y1="314" x2="634" y2="314"/><polyline class="w" points="725,200 725,85"/><text x="733" y="150" class="pin" text-anchor="start">6</text><polyline class="w" points="725,85 890,85"/><circle cx="725" cy="85" r="3.5" class="d"/><text x="712" y="78" class="b" text-anchor="end">+5 V (USB)</text><polyline class="w" points="840,85 840,108.5"/><polyline class="w" points="840,116.5 840,140"/><line class="p" x1="828" y1="108.5" x2="852" y2="108.5"/><line class="p" x1="828" y1="116.5" x2="852" y2="116.5"/><text x="858" y="110.5" class="b" text-anchor="start">C16</text><text x="858" y="126.5" class="l" text-anchor="start">100 nF</text><polyline class="w" points="840,140 840,146"/><line class="w" x1="828" y1="146" x2="852" y2="146"/><line class="w" x1="832" y1="150" x2="848" y2="150"/><line class="w" x1="836" y1="154" x2="844" y2="154"/><polyline class="w" points="940,85 940,108.5"/><polyline class="w" points="940,116.5 940,140"/><line class="p" x1="928" y1="108.5" x2="952" y2="108.5"/><line class="p" x1="928" y1="116.5" x2="952" y2="116.5"/><text x="922" y="106.5" class="b" text-anchor="middle">+</text><text x="958" y="110.5" class="b" text-anchor="start">C17</text><text x="958" y="126.5" class="l" text-anchor="start">470 µF</text><polyline class="w" points="890,85 940,85"/><polyline class="w" points="940,140 940,146"/><line class="w" x1="928" y1="146" x2="952" y2="146"/><line class="w" x1="932" y1="150" x2="948" y2="150"/><line class="w" x1="936" y1="154" x2="944" y2="154"/><polyline class="w" points="725,262 725,300"/><text x="733" y="285" class="pin" text-anchor="start">4</text><polyline class="w" points="725,300 725,306"/><line class="w" x1="713" y1="306" x2="737" y2="306"/><line class="w" x1="717" y1="310" x2="733" y2="310"/><line class="w" x1="721" y1="314" x2="729" y2="314"/><polyline class="w" points="690,277 690,320"/><text x="682" y="300" class="pin" text-anchor="end">7</text><polyline class="w" points="690,320 690,346.0"/><polyline class="w" points="690,354.0 690,380"/><line class="p" x1="678" y1="346.0" x2="702" y2="346.0"/><line class="p" x1="678" y1="354.0" x2="702" y2="354.0"/><text x="672" y="344.0" class="b" text-anchor="middle">+</text><text x="708" y="348.0" class="b" text-anchor="start">C13</text><text x="708" y="364.0" class="l" text-anchor="start">10 µF</text><polyline class="w" points="690,380 690,386"/><line class="w" x1="678" y1="386" x2="702" y2="386"/><line class="w" x1="682" y1="390" x2="698" y2="390"/><line class="w" x1="686" y1="394" x2="694" y2="394"/><text x="735" y="410" class="n" text-anchor="start">LM386: pines 1 y 8 libres → ganancia 20</text><polyline class="w" points="800,230 840,230"/><text x="812" y="222" class="pin" text-anchor="middle">5</text><circle cx="840" cy="230" r="3.5" class="d"/><polyline class="w" points="840,245 833,249.16666666666666 847,257.5 833,265.8333333333333 847,274.1666666666667 833,282.5 847,290.8333333333333 840,295"/><text x="826" y="268.0" class="b" text-anchor="end">R14</text><text x="826" y="284.0" class="l" text-anchor="end">10 Ω</text><polyline class="w" points="840,230 840,245"/><polyline class="w" points="840,295 840,318.5"/><polyline class="w" points="840,326.5 840,350"/><line class="p" x1="828" y1="318.5" x2="852" y2="318.5"/><line class="p" x1="828" y1="326.5" x2="852" y2="326.5"/><text x="822" y="320.5" class="b" text-anchor="end">C15</text><text x="822" y="336.5" class="l" text-anchor="end">47 nF</text><polyline class="w" points="840,350 840,356"/><line class="w" x1="828" y1="356" x2="852" y2="356"/><line class="w" x1="832" y1="360" x2="848" y2="360"/><line class="w" x1="836" y1="364" x2="844" y2="364"/><text x="858" y="330" class="n" text-anchor="start">red Zobel</text><polyline class="w" points="840,230 880,230"/><polyline class="w" points="880,230 896.0,230"/><polyline class="w" points="904.0,230 920,230"/><line class="p" x1="896.0" y1="218" x2="896.0" y2="242"/><line class="p" x1="904.0" y1="218" x2="904.0" y2="242"/><text x="888.0" y="220" class="b" text-anchor="middle">+</text><text x="900.0" y="210" class="b" text-anchor="middle">C14</text><text x="900.0" y="260" class="l" text-anchor="middle">220 µF</text><polyline class="w" points="920,230 990,230"/><rect x="990" y="218" width="14" height="40" class="box"/><polygon class="box" points="1004,218 1030,198 1030,278 1004,258"/><text x="1018" y="300" class="b" text-anchor="middle">Parlante</text><text x="1018" y="316" class="l" text-anchor="middle">8 Ω pasivo</text><polyline class="w" points="990,250 975,250 975,290"/><polyline class="w" points="975,290 975,296"/><line class="w" x1="963" y1="296" x2="987" y2="296"/><line class="w" x1="967" y1="300" x2="983" y2="300"/><line class="w" x1="971" y1="304" x2="979" y2="304"/></svg></div>
+<p>Lista de conexiones: <code>circuito/conexiones-parlante.csv</code>.</p>
+<table><tr><th>Pin LM386</th><th>Conectar a</th></tr>
+<tr><td>1 y 8</td><td>Libres (ganancia 20)</td></tr><tr><td>2 (−)</td><td>GND</td></tr>
+<tr><td>3 (+)</td><td>Cursor de VR1</td></tr><tr><td>4</td><td>GND</td></tr>
+<tr><td>5 (salida)</td><td>C14 (+) → parlante; Zobel R14+C15 a GND</td></tr>
+<tr><td>6</td><td>+5 V (pin 5V de la C3); C16 y C17 a GND junto al chip</td></tr>
+<tr><td>7</td><td>C13 (+) a GND</td></tr></table>
+
+<h3>Montaje por pasos</h3>
+<ol>
+<li>Con todo apagado, colocar el LM386 con la muesca arriba (pin 1 arriba a la izquierda). Pin 6 a +5 V, pin 4 a GND, C16 y C17 lo más cerca posible.</li>
+<li>Pin 2 a GND, C13 en el pin 7. Pines 1 y 8 sin conectar.</li>
+<li>Salida: pin 5 → C14 (positivo hacia el pin 5) → parlante → GND. Zobel: R14 en serie con C15 desde el pin 5 a GND.</li>
+<li>Volumen: VR1 entre R13 y GND; el cursor al pin 3. Empezar con el cursor cerca de GND (volumen bajo).</li>
+<li>Filtro: GPIO10 → R11 → C10 a GND → R12 → C11 a GND → C12 → R13.</li>
+<li>Masa: llevar el GND del LM386 y del parlante con un cable propio hasta el pin GND de la C3, no encadenado por el GND del micrófono. Separar físicamente el parlante del electret.</li>
+<li><b>Prueba sin código:</b> alimentar y medir el pin 5 respecto a GND: debe estar cerca de 2,5 V (mitad de la fuente). Tocar el cursor de VR1 con el dedo debe producir un zumbido en el parlante.</li>
+</ol>
+<div class="card warn">Si suena distorsionado, bajar VR1 o el valor <code>volumen</code> de <code>config.json</code>. Si suena muy bajo con VR1 al máximo, cambiar R13 por 10 kΩ. Alternativa si no hay LM386: módulo PAM8403 (un canal), entrada en el mismo punto que el pin 3.</div>
+
+<h2>4. Firmware</h2>
+<p>Abrir la carpeta <code>firmware</code> completa en VS Code y, en la terminal ESP-IDF:</p>
+<pre>idf.py set-target esp32c3
+idf.py build
+idf.py -p COM5 flash</pre>
+<p>Compilado y verificado con ESP-IDF v6.1.1. Si no conecta: mantener BOOT, pulsar y soltar RESET, soltar BOOT. Tras cargar, pulsar RESET.</p>
+<table><tr><th>Pin C3</th><th>Uso</th></tr>
+<tr><td>GPIO3</td><td>ADC_MIC (micrófono, igual que Parte 1)</td></tr>
+<tr><td>GPIO10</td><td>Salida de audio PDM → R11</td></tr>
+<tr><td>GPIO6</td><td>Reloj PDM interno: <b>no conectar</b></td></tr>
+<tr><td>GPIO9 (BOOT)</td><td>Pulsar para hablar</td></tr>
+<tr><td>GPIO8 (LED)</td><td>Encendido mientras graba</td></tr></table>
+<p>Protocolo USB: <code>R</code> graba y devuelve <code>C3AUDIO1</code> + 64 000 muestras + CRC32 (como Parte 1). La C3 envía <code>S</code> al empezar a grabar. <code>P</code> + longitud + PCM 16 bits a 16 kHz reproduce; la C3 contesta <code>K</code> por cada bloque de 2048 bytes que consume y <code>D</code> al terminar.</p>
+
+<h2>5. Programa del PC</h2>
+<ol>
+<li>Crear una clave gratuita de Gemini en <code>aistudio.google.com</code> (Get API key).</li>
+<li>Abrir <code>asistente/config.json</code> y pegar la clave en <code>gemini_api_key</code>.</li>
+<li>Ejecutar <code>Instalar_dependencias.bat</code> (Python 3.11, necesita Internet la primera vez).</li>
+<li>Cerrar el monitor de VS Code y Hercules. Abrir <code>Iniciar_asistente.bat</code>, elegir el COM y pulsar <b>Conectar</b>.</li>
+<li>Pulsar BOOT en la placa (o <b>Hablar</b>) y hacer la pregunta a 5–10 cm del micrófono.</li>
+</ol>
+<p>En <code>config.json</code> se cambian el nombre del asistente, la voz (<code>es-EC-AndreaNeural</code>, <code>es-EC-LuisNeural</code>…), la velocidad y el volumen digital. Si un modelo de Gemini no está disponible, el programa prueba el siguiente de la lista. Si edge-tts falla, usa la voz de Windows.</p>
+<p>Cada turno guarda la pregunta en <code>grabaciones/</code> y el texto en <code>historial.txt</code>. <code>test_asistente.py</code> prueba el protocolo y el audio sin hardware.</p>
+<div class="card">El audio de cada pregunta se envía a Google para procesarlo. No usar el asistente para datos personales o clínicos.</div>
+
+<h2>6. Diagnóstico</h2>
+<table><tr><th>Síntoma</th><th>Revisar</th></tr>
+<tr><td>«Acceso denegado» al conectar</td><td>Otro programa usa el COM (monitor, Hercules, grabador de la Parte 1).</td></tr>
+<tr><td>Responde «no te escuché»</td><td>Hablar más cerca; revisar en <code>grabaciones/</code> que el WAV se oiga bien.</td></tr>
+<tr><td>Silencio en el parlante</td><td>Pin 5 del LM386 en ~2,5 V, cursor de VR1, cable a GPIO10 (no GPIO6), polaridad de C14.</td></tr>
+<tr><td>Zumbido o pitido agudo</td><td>Faltan C16/C17 o la red Zobel; masa en estrella; cables cortos.</td></tr>
+<tr><td>Voz cortada o «No llegó la confirmación»</td><td>Cargar este firmware (no el de la Parte 1); cable USB de datos.</td></tr>
+<tr><td>Error 429 de Gemini</td><td>Cuota gratuita agotada por minuto: esperar unos segundos.</td></tr></table>
+
+<h2>7. Extras posibles</h2>
+<ul><li><b>OLED SSD1306 por I2C</b> (GPIO4 SDA, GPIO5 SCL): mostrar la transcripción enviándola por USB con una orden nueva.</li>
+<li><b>Voz clonada:</b> sustituir la función <code>tts_edge</code> por un servicio de clonación (p. ej. ElevenLabs) o XTTS local; el resto del flujo no cambia.</li></ul>
+</body></html>

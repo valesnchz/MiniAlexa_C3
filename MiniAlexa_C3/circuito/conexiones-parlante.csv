@@ -1,0 +1,22 @@
+componente,terminal_1,terminal_2,valor
+R11,GPIO10,F1,1k
+C10,F1,GND,10nF
+R12,F1,F2,1k
+C11,F2,GND,10nF
+C12,F2,X1,1uF_ceramico
+R13,X1,VOL_TOP,47k
+VR1,VOL_TOP (extremo),GND (extremo),10k_potenciometro
+VR1_cursor,LM386_pin3,,
+LM386_pin2,GND,,entrada_inversora
+LM386_pin4,GND,,
+LM386_pin6,+5V,,
+C16,+5V,GND,100nF_junto_al_LM386
+C17,+5V+,GND-,470uF
+C13,LM386_pin7+,GND-,10uF
+LM386_pin1,,,libre
+LM386_pin8,,,libre
+R14,LM386_pin5,Z1,10ohm
+C15,Z1,GND,47nF
+C14,LM386_pin5+,SPK+ -,220uF
+PARLANTE,SPK+,GND,8ohm
+GPIO6,,,reloj_PDM_no_conectar
